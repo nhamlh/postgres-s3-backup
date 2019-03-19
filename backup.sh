@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-export readonly PGPASSFILE="$HOME/.pgpass"
+export readonly PGPASSFILE="${PGPASSFILE:-~/.pgpass}"
 export readonly _TIMESTAMP="$(date +%Y%m%d)"
 export readonly _UPLOAD_DIR="s3://${S3_BUCKET}/$(date +%Y)/$(date +%m)"
 
