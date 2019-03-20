@@ -2,9 +2,8 @@
 
 set -euo pipefail
 
-export readonly PGPASSFILE="${PGPASSFILE:-~/.pgpass}"
-export readonly _TIMESTAMP="$(date +%Y%m%d)"
-export readonly _UPLOAD_DIR="s3://${S3_BUCKET}/$(date +%Y)/$(date +%m)"
+export readonly PGPASSFILE="${PGPASSFILE:-/root/.pgpass}"
+export readonly _UPLOAD_DIR="s3://${S3_BUCKET}/$(date +%Y)/$(date +%m)/$(date +%d)"
 export readonly _DUMP_DIR="${DUMP_DIR:-/}"
 
 
@@ -13,33 +12,55 @@ if [[ ! -r $PGPASSFILE ]]; then
   exit 1
 fi
 
+function get_all_db() {
+  local _hostname=$1    ; shift
+  local _port=$1        ; shift
+  local _username=$1    ; shift
+
+  local _dbs=$(psql \
+    -h $_hostname \
+    -p $_port \
+    -U $_username \
+    --tuples-only \
+    -w \
+    postgres \
+    -c "SELECT datname FROM pg_database WHERE datistemplate = false AND datname != 'rdsadmin' AND datname != 'postgres';")
+
+  echo "$_dbs"
+}
+
 # .pgpass format
 # address:port:database:user:password
 # address, port and database could be wildcard
 
 while read -r line; do
-  IFS=: read _HOSTNAME _PORT _DATABASE _USERNAME _PASSWORD <<< $line
+  IFS=: read _hostname _port _database _username _ <<< $line
 
-  _backup_file="${_DUMP_DIR}/${_HOSTNAME}-${_TIMESTAMP}.sql"
+  _backup_dir="${_DUMP_DIR}/${_hostname}"
+  mkdir -p $_backup_dir
 
-  echo "Dump all databases of server ${_HOSTNAME} to ${_backup_file}"
-  pg_dumpall \
-    -h $_HOSTNAME \
-    -p $_PORT \
-    -U $_USERNAME \
-    -w \
-    --no-role-passwords \
-    > ${_backup_file} \
-    && tar \
-      cvfz \
-      ${_backup_file}.gzip \
-      $_backup_file
+  while read -r _db; do
+    printf "Dump database $_db of server ${_hostname} to folder ${_backup_dir}"
+    pg_dump \
+      -h $_hostname \
+      -p $_port \
+      -U $_username \
+      --no-owner \
+      $_db \
+      >> ${_backup_dir}/${_db}.sql
+  done <<< "$(get_all_db $_hostname $_port $_username)"
 
-  echo "Upload file ${_backup_file}.gzip to bucket ${S3_BUCKET}"
-  aws s3 cp ${_backup_file}.gzip ${_UPLOAD_DIR}/$_backup_file.gzip
+  echo "Compress folder $_backup_dir"
+  tar \
+    cvfz \
+    ${_hostname}.gzip \
+    $_backup_dir
+
+  echo "Upload file ${_hostname}.gzip to bucket ${S3_BUCKET}"
+  aws s3 cp ${_hostname}.gzip ${_UPLOAD_DIR}/${_hostname}.gzip
 
   echo "Cleanup dump file"
-  rm -f $_backup_file
-  rm -f ${_backup_file}.gzip
+  rm -rf $_backup_dir
+  rm -f ${_hostname}.gzip
 
 done < "$PGPASSFILE"
