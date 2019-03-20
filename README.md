@@ -1,8 +1,12 @@
 # Description
 This image contains a simple bash script to dump all database of defined postgres server then upload them to S3 bucket.
+This image is built specific for RDS postgres instances to overcome some RDS restrictions:
+- We couldn't read role passwords
+- We couldn't use pg_dumpall to easily dump all databases of the server at once because we couldn't read rdsadmin database. There're a pull request to support --exclude-database for pg_dumpall but it hasn't done yet.
 
 # How it works
-The bash script will iterate each line in file .pgpass, dump the server using `pg_dumpall`. Notice that I've use `--no-role-passwords` because I developed this image to work with my specific usecase: backing up RDS servers, which doesn't allow users to read roles' password.
+The bash script will iterate each line in file PGPASSDFILE, get a list of databases then dump each of them using `pg_dump`.
+The script then compress the dump files, finally upload it to S3 bucket.
 
 # Environments
 - AWS_ACCESS_KEY_ID
@@ -10,5 +14,5 @@ The bash script will iterate each line in file .pgpass, dump the server using `p
 - S3_BUCKET
 
 # [.pgpass](https://www.postgresql.org/docs/9.3/libpq-pgpass.html)
-User for each database must has the privileges to access all databases
+The user for each database must has the privileges to access all databases
 
