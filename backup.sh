@@ -45,7 +45,6 @@ while read -r line; do
       -h $_hostname \
       -p $_port \
       -U $_username \
-      --no-owner \
       $_db \
       >> ${_backup_dir}/${_db}.sql
   done <<< "$(get_all_db $_hostname $_port $_username)"
