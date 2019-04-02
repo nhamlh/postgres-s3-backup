@@ -33,7 +33,7 @@ function get_all_db() {
 # address:port:database:user:password
 # address, port and database could be wildcard
 
-while read -r line; do
+while IFS= read -r line || [[ -n $line ]]; do
   IFS=: read _hostname _port _database _username _ <<< $line
 
   _backup_dir="${_DUMP_DIR}/${_hostname}"
