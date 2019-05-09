@@ -16,6 +16,10 @@ The script then compress the dump files, finally upload it to S3 bucket.
 # [.pgpass](https://www.postgresql.org/docs/9.3/libpq-pgpass.html)
 The user for each database must has the privileges to access all databases
 
+```bash
+grant usage on schema public to <user>;
+grant select on all tables in schema public to <user>;
+```
 # Docker image
 ```bash
 docker pull nhamlh/postgres-s3-backup
